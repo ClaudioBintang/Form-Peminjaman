@@ -1,24 +1,44 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 
+// Terima props baru: onAddItem
 const InventoryTable = ({
   inventory,
   logs,
   onUpdateInventory,
   onUpdateLogs,
+  onAddItem,
 }) => {
-  const { user } = useAuth(); // 2. Ambil User Login
+  const { user } = useAuth();
 
+  // State untuk Modal Pinjam
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+
+  // State untuk Modal Tambah Barang (BARU)
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  // State Pencarian
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Form Data Pinjam
   const [formData, setFormData] = useState({
     borrower: "",
     machine: "",
     reason: "",
   });
 
+  // Form Data Tambah Barang (BARU)
+  const [newItemData, setNewItemData] = useState({
+    name: "",
+    category: "",
+    location: "",
+    stock: 0,
+    minStock: 0,
+    unit: "Pcs",
+  });
+
+  // --- LOGIC SEARCH ---
   const filteredInventory = inventory.filter((item) => {
     return (
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -27,20 +47,14 @@ const InventoryTable = ({
     );
   });
 
+  // --- LOGIC PINJAM ---
   const handleClickPinjam = (item) => {
     if (item.stock <= 0) {
       alert("Stok habis! Tidak bisa dipinjam.");
       return;
     }
     setSelectedItem(item);
-
-    // 3. AUTO FILL NAMA PEMINJAM SAAT BUKA MODAL 👇
-    setFormData({
-      borrower: user.username, // Isi otomatis pakai nama login
-      machine: "",
-      reason: "",
-    });
-
+    setFormData({ borrower: user.username, machine: "", reason: "" });
     setIsModalOpen(true);
   };
 
@@ -51,16 +65,13 @@ const InventoryTable = ({
 
   const handleSubmitPinjam = (e) => {
     e.preventDefault();
-
     const updatedInventory = inventory.map((item) => {
       if (item.id === selectedItem.id) {
         return { ...item, stock: item.stock - 1 };
       }
       return item;
     });
-
     onUpdateInventory(updatedInventory);
-
     const newLog = {
       id: Date.now(),
       sparepartId: selectedItem.id,
@@ -70,18 +81,44 @@ const InventoryTable = ({
       dateBorrowed: new Date().toISOString().split("T")[0],
       status: "Borrowed",
     };
-
     onUpdateLogs([...logs, newLog]);
-
     alert(`Berhasil meminjam ${selectedItem.name}!`);
     setIsModalOpen(false);
-    // Reset form, tapi nama tetap kita set ke user yang login (opsional)
     setFormData({ borrower: user.username, machine: "", reason: "" });
+  };
+
+  // --- LOGIC TAMBAH BARANG BARU (BARU) ---
+  const handleNewItemChange = (e) => {
+    const { name, value } = e.target;
+    setNewItemData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmitNewItem = (e) => {
+    e.preventDefault();
+    // Validasi sederhana: Ubah string angka jadi number beneran
+    const finalItem = {
+      ...newItemData,
+      stock: parseInt(newItemData.stock),
+      minStock: parseInt(newItemData.minStock),
+    };
+
+    onAddItem(finalItem); // Kirim ke App.jsx
+    setIsAddModalOpen(false); // Tutup modal
+    // Reset form
+    setNewItemData({
+      name: "",
+      category: "",
+      location: "",
+      stock: 0,
+      minStock: 0,
+      unit: "Pcs",
+    });
   };
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen relative">
       <div className="max-w-6xl mx-auto">
+        {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">
@@ -93,18 +130,32 @@ const InventoryTable = ({
             </div>
           </div>
 
-          <div className="relative w-full md:w-96">
-            <input
-              type="text"
-              placeholder="Cari nama part, kategori, atau rak..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm"
-            />
-            <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+          <div className="flex gap-3 w-full md:w-auto">
+            {/* Search Bar */}
+            <div className="relative w-full md:w-64">
+              <input
+                type="text"
+                placeholder="Cari part..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm"
+              />
+              <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+            </div>
+
+            {/* TOMBOL TAMBAH (Hanya Admin) */}
+            {user.role === "admin" && (
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-md flex items-center gap-2 transition"
+              >
+                <span>+</span> Tambah Barang
+              </button>
+            )}
           </div>
         </div>
 
+        {/* Tabel Inventory */}
         <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
           <table className="w-full text-left border-collapse">
             <thead className="bg-gray-100 text-gray-600 uppercase text-sm font-semibold">
@@ -176,6 +227,7 @@ const InventoryTable = ({
         </div>
       </div>
 
+      {/* --- MODAL PINJAM (Sama seperti sebelumnya) --- */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-md mx-4">
@@ -183,22 +235,19 @@ const InventoryTable = ({
               Pinjam:{" "}
               <span className="text-indigo-600">{selectedItem?.name}</span>
             </h2>
-
             <form onSubmit={handleSubmitPinjam} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Nama Peminjam
                 </label>
-                {/* 4. INPUT INI KITA DISABLE SUPAYA GAK BISA DIGANTI */}
                 <input
                   required
                   name="borrower"
                   value={formData.borrower}
-                  readOnly // <-- Gak bisa diedit manual
+                  readOnly
                   className="w-full bg-gray-100 text-gray-500 border border-gray-300 rounded-lg p-2 focus:outline-none cursor-not-allowed"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Untuk Mesin
@@ -238,6 +287,132 @@ const InventoryTable = ({
                   className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-md"
                 >
                   Simpan Transaksi
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL TAMBAH BARANG (BARU) --- */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">
+              ✨ Tambah Barang Baru
+            </h2>
+
+            <form onSubmit={handleSubmitNewItem} className="space-y-4">
+              {/* Nama Barang */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nama Barang
+                </label>
+                <input
+                  required
+                  name="name"
+                  value={newItemData.name}
+                  onChange={handleNewItemChange}
+                  type="text"
+                  placeholder="Contoh: Solenoid Valve"
+                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none"
+                />
+              </div>
+
+              {/* Kategori & Lokasi (Grid 2 Kolom) */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Kategori
+                  </label>
+                  <select
+                    name="category"
+                    value={newItemData.category}
+                    onChange={handleNewItemChange}
+                    className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none bg-white"
+                  >
+                    <option value="">- Pilih -</option>
+                    <option value="Sensors">Sensors</option>
+                    <option value="Heaters">Heaters</option>
+                    <option value="Electrical">Electrical</option>
+                    <option value="Mechanical">Mechanical</option>
+                    <option value="Pneumatic">Pneumatic</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Lokasi Rak
+                  </label>
+                  <input
+                    required
+                    name="location"
+                    value={newItemData.location}
+                    onChange={handleNewItemChange}
+                    type="text"
+                    placeholder="Rak A-01"
+                    className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Stok, MinStock, Satuan (Grid 3 Kolom) */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Stok Awal
+                  </label>
+                  <input
+                    required
+                    name="stock"
+                    value={newItemData.stock}
+                    onChange={handleNewItemChange}
+                    type="number"
+                    min="0"
+                    className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Min. Stok
+                  </label>
+                  <input
+                    required
+                    name="minStock"
+                    value={newItemData.minStock}
+                    onChange={handleNewItemChange}
+                    type="number"
+                    min="0"
+                    className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Satuan
+                  </label>
+                  <input
+                    name="unit"
+                    value={newItemData.unit}
+                    onChange={handleNewItemChange}
+                    type="text"
+                    placeholder="Pcs"
+                    className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition shadow-md"
+                >
+                  Simpan Barang
                 </button>
               </div>
             </form>

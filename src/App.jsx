@@ -71,7 +71,14 @@ function App() {
 
     alert("Barang berhasil dikembalikan. Stok bertambah +1.");
   };
-
+  const handleAddNewItem = (newItemData) => {
+    const newItem = {
+      id: Date.now().toString(),
+      ...newItemData,
+    };
+    setInventory([...inventory, newItem]);
+    alert("Sparepart baru berhasil ditambahkan!");
+  }
   return (
     // 1. Bungkus semuanya dengan AuthProvider
     <AuthProvider>
@@ -91,6 +98,7 @@ function App() {
                     logs={logs}
                     onUpdateInventory={setInventory}
                     onUpdateLogs={setLogs}
+                    onAddItem={handleAddNewItem}
                   />
                 </RequireAuth>
               }
