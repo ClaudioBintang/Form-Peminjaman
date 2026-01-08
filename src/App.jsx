@@ -25,7 +25,7 @@ const RequireAuth = ({ children }) => {
 };
 
 function App() {
-  // --- STATE DATA (Sama seperti sebelumnya) ---
+  //state data inventory
   const [inventory, setInventory] = useState(() => {
     const savedInv = localStorage.getItem("sparepart_inventory");
     return savedInv ? JSON.parse(savedInv) : initialInventory;

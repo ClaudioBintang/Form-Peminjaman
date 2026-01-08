@@ -72,6 +72,78 @@ export const initialInventory = [
     spec: "IEC 60751, Class B",
     status: "Available",
   },
+  {
+    id: 9,
+    name: "Thermal Imager",
+    category: "Thermal",
+    stock: 1,
+    location: "Rak A-09",
+    spec: "FLUX, Class A",
+    status: "Available",
+  },
+  {
+    id: 10,
+    name: "Walkie Talkie",
+    category: "Communication",
+    stock: 1,
+    location: "Rak A-10",
+    spec: "HT Motorola, Class A",
+    status: "Available",
+  },
+  {
+    id: 11,
+    name: "JIG & PUNCH SET",
+    category: "Mechanical",
+    stock: 1,
+    location: "Rak A-11",
+    spec: "Standard, Class A",
+    status: "Available",
+  },
+  {
+    id: 12,
+    name: "Vernier Caliper 300mm",
+    category: "Mechanical",
+    stock: 2,
+    location: "Rak A-12",
+    spec: "IEC 60751, Class B",
+    status: "Available",
+  },
+  {
+    id: 13,
+    name: "Vernier Caliper 150mm",
+    category: "Mechanical",
+    stock: 1,
+    location: "Rak A-13",
+    spec: "IEC 60751, Class B",
+    status: "Available",
+  },
+  {
+    id: 14,
+    name: "Hardnest Tester",
+    category: "Mechanical",
+    stock: 2,
+    location: "Rak A-14",
+    spec: "IEC 60751, Class B",
+    status: "Available",
+  },
+  {
+    id: 15,
+    name: "Digital Multimeter",
+    category: "Sensors",
+    stock: 1,
+    location: "Rak A-15",
+    spec: "IEC 60751, Class B",
+    status: "Available",
+  },
+  {
+    id: 16,
+    name: "Yokogawa Instrument",
+    category: "Electrical",
+    stock: 1,
+    location: "Rak A-16",
+    spec: "IEC 60751, Class B",
+    status: "Available",
+  },
 ];
 //2.data log (for save history peminjaman)
 export const initialLogs = [
@@ -95,14 +167,14 @@ export const initialLogs = [
     sparepartId: 3, // Mengacu ke Omron Relay
     borrower: "Andi (Maintenance)",
     dateBorrowed: "2025-12-01",
-    
+
     // Data Tambahan Baru
     machine: "Oven Pemanas 1",
     reason: "Relay macet / lengket",
-    
+
     // Status
     dateReturned: "2025-12-02", // Sudah dikembalikan (bekasnya)
     returnCondition: "Rusak/Scrap", // Kondisi barang bekasnya
-    status: "Returned"
-  }
+    status: "Returned",
+  },
 ];

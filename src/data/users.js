@@ -8,5 +8,10 @@ export const allowedUsers = [
         nik: "tech001",
         name: "",
         role: "teknisi",
+    },
+    {
+        nik: "tech002",
+        name: "",
+        role: "teknisi",
     }
 ]
