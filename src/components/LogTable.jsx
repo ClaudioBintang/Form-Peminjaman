@@ -1,118 +1,131 @@
-import React from "react";
-import { useAuth } from "../context/AuthContext";
-// TERIMA PROPS BARU: onReturnItem
-const LogTable = ({ logs, inventory, onReturnItem }) => {
-  const { user } = useAuth(); // 2. Ambil data user yang sedang login
+import React, { useState } from "react";
 
-  const getItemName = (id) => {
-    const item = inventory.find((i) => i.id === id);
-    return item ? item.name : "Barang Dihapus";
-  };
+const LogTable = ({ logs, inventory, onReturnItem }) => {
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // 1. GABUNGKAN DATA (JOIN LOKAL)
+  // Karena tabel log cuma punya 'sparepart_id', kita cari nama barangnya di data 'inventory'
+  const enrichedLogs = logs.map((log) => {
+    // Perhatikan: pakai sparepart_id (sesuai Supabase)
+    const item = inventory.find((i) => i.id === log.sparepart_id);
+    return {
+      ...log,
+      itemName: item ? item.name : "Barang Dihapus/Hilang",
+    };
+  });
+
+  // 2. FITUR PENCARIAN
+  const filteredLogs = enrichedLogs.filter((log) => {
+    return (
+      log.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.borrower.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.machine.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  });
 
   return (
-    <div className="p-6 bg-gray-50 mt-8">
+    <div className="p-6 bg-gray-50 min-h-screen">
       <div className="max-w-6xl mx-auto">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">
-          📋 Riwayat Transaksi (Logbook)
-        </h2>
+        
+        {/* Header & Search */}
+        <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">📋 Riwayat Transaksi</h1>
+            <div className="text-sm text-gray-500 mt-1">
+              Menampilkan {filteredLogs.length} dari {logs.length} catatan
+            </div>
+          </div>
 
-        <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-gray-800 text-white text-sm">
+          <div className="relative w-full md:w-64">
+            <input
+              type="text"
+              placeholder="Cari part, nama, atau mesin..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm"
+            />
+            <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+          </div>
+        </div>
+
+        {/* Tabel Riwayat */}
+        <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200 overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[800px]">
+            <thead className="bg-gray-100 text-gray-600 uppercase text-xs font-semibold">
               <tr>
-                <th className="p-3">Tanggal Pinjam</th>
-                <th className="p-3">Peminjam</th>
-                <th className="p-3">Barang</th>
-                <th className="p-3">Mesin</th>
-                <th className="p-3 text-center">Status</th>
-                {/* Kolom Aksi hanya judulnya saja, isinya nanti dikondisikan */}
-                <th className="p-3 text-center">Aksi (Admin)</th>
+                <th className="p-4 border-b">Tanggal Pinjam</th>
+                <th className="p-4 border-b">Nama Barang</th>
+                <th className="p-4 border-b">Peminjam</th>
+                <th className="p-4 border-b">Mesin & Alasan</th>
+                <th className="p-4 border-b text-center">Status</th>
+                <th className="p-4 border-b text-center">Tanggal Kembali</th>
+                <th className="p-4 border-b text-center">Aksi</th>
               </tr>
             </thead>
             <tbody className="text-gray-700 text-sm">
-              {logs
-                .slice()
-                .reverse()
-                .map((log) => (
-                  <tr key={log.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3 font-mono">
-                      <div>{log.dateBorrowed}</div>
-                      {log.dateReturned && (
-                        <div className="text-xs text-green-600 mt-1">
-                          Kembali: {log.dateReturned}
-                        </div>
-                      )}
+              {filteredLogs.length > 0 ? (
+                filteredLogs.map((log) => (
+                  <tr key={log.id} className="hover:bg-gray-50 border-b">
+                    {/* Tanggal Pinjam (Pakai date_borrowed) */}
+                    <td className="p-4 font-mono text-gray-600">
+                      {log.date_borrowed}
                     </td>
-                    <td className="p-3 font-semibold">{log.borrower}</td>
-
-                    <td className="p-3 text-blue-600">
-                      {getItemName(log.sparepartId)}
+                    
+                    {/* Nama Barang (Hasil Join) */}
+                    <td className="p-4 font-bold text-indigo-600">
+                      {log.itemName}
                     </td>
-
-                    <td className="p-3">
-                      {log.machine}
-                      <div className="text-xs text-gray-400 italic">
-                        "{log.reason}"
-                      </div>
+                    
+                    <td className="p-4">{log.borrower}</td>
+                    
+                    <td className="p-4">
+                      <div className="font-semibold text-gray-800">{log.machine}</div>
+                      <div className="text-xs text-gray-500 line-clamp-2">{log.reason}</div>
                     </td>
-
-                    <td className="p-3 text-center">
+                    
+                    <td className="p-4 text-center">
                       <span
-                        className={`px-2 py-1 rounded text-xs font-bold ${
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
                           log.status === "Returned"
                             ? "bg-green-100 text-green-700"
                             : "bg-yellow-100 text-yellow-700"
                         }`}
                       >
-                        {log.status === "Returned" ? "SELESAI" : "DIPINJAM"}
+                        {log.status}
                       </span>
                     </td>
 
-                    <td className="p-3 text-center">
-                      {/* LOGIC SAKTI DI SINI 👇 */}
-                      {/* Tombol hanya muncul JIKA: User adalah ADMIN -DAN- Status masih BORROWED */}
+                    {/* Tanggal Kembali (Pakai date_returned) */}
+                    <td className="p-4 text-center font-mono text-gray-500">
+                      {log.date_returned ? log.date_returned.split("T")[0] : "-"}
+                    </td>
 
-                      {user.role === "admin" && log.status === "Borrowed" && (
+                    {/* Tombol Aksi */}
+                    <td className="p-4 text-center">
+                      {log.status === "Borrowed" ? (
                         <button
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                "Yakin barang ini sudah dikembalikan/diganti?"
-                              )
-                            ) {
-                              onReturnItem(log.id);
-                            }
-                          }}
-                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs transition shadow-sm"
+                          onClick={() => onReturnItem(log.id)}
+                          className="bg-green-600 text-white hover:bg-green-700 px-3 py-1.5 rounded-lg text-xs font-medium transition shadow-sm"
                         >
-                          ✅ Terima
+                          Selesai / Kembali
                         </button>
-                      )}
-
-                      {/* Kalau user BUKAN admin, tapi status Borrowed */}
-                      {user.role !== "admin" && log.status === "Borrowed" && (
-                        <span className="text-gray-400 text-xs italic">
-                          Hubungi Admin
-                        </span>
-                      )}
-
-                      {log.status === "Returned" && (
-                        <span className="text-gray-400 text-xs">Done</span>
+                      ) : (
+                        <span className="text-gray-400 text-xs italic">Selesai ✓</span>
                       )}
                     </td>
                   </tr>
-                ))}
-
-              {logs.length === 0 && (
+                ))
+              ) : (
                 <tr>
-                  <td colSpan="6" className="p-8 text-center text-gray-400">
-                    Belum ada data transaksi.
+                  <td colSpan="7" className="p-8 text-center text-gray-500">
+                    Belum ada riwayat transaksi atau data tidak ditemukan. 📭
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+
       </div>
     </div>
   );

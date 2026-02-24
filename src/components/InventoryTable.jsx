@@ -1,40 +1,27 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 
-// Terima props baru: onAddItem
 const InventoryTable = ({
   inventory,
-  logs,
-  onUpdateInventory,
-  onUpdateLogs,
-  onAddItem,
+  onTransaction, // Gunakan ini untuk Pinjam
+  onAddItem,     // Gunakan ini untuk Tambah Barang Baru
 }) => {
   const { user } = useAuth();
 
-  // State untuk Modal Pinjam
+  // State Modal & Search
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
-
-  // State untuk Modal Tambah Barang (BARU)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-
-  // State Pencarian
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Form Data Pinjam
-  const [formData, setFormData] = useState({
-    borrower: "",
-    machine: "",
-    reason: "",
-  });
-
-  // Form Data Tambah Barang (BARU)
+  // Form Data
+  const [formData, setFormData] = useState({ borrower: "", machine: "", reason: "" });
   const [newItemData, setNewItemData] = useState({
     name: "",
     category: "",
     location: "",
     stock: 0,
-    minStock: 0,
+    min_stock: 0, // Sesuai kolom database
     unit: "Pcs",
   });
 
@@ -42,8 +29,8 @@ const InventoryTable = ({
   const filteredInventory = inventory.filter((item) => {
     return (
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.location.toLowerCase().includes(searchTerm.toLowerCase())
+      item.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.location?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   });
 
@@ -54,7 +41,8 @@ const InventoryTable = ({
       return;
     }
     setSelectedItem(item);
-    setFormData({ borrower: user.username, machine: "", reason: "" });
+    // Menggunakan user.username atau user.name sesuai context kamu
+    setFormData({ borrower: user.username || user.name, machine: "", reason: "" });
     setIsModalOpen(true);
   };
 
@@ -63,31 +51,30 @@ const InventoryTable = ({
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // REVISI BAGIAN INI: Sekarang lari ke Supabase lewat App.jsx
   const handleSubmitPinjam = (e) => {
     e.preventDefault();
-    const updatedInventory = inventory.map((item) => {
-      if (item.id === selectedItem.id) {
-        return { ...item, stock: item.stock - 1 };
-      }
-      return item;
-    });
-    onUpdateInventory(updatedInventory);
-    const newLog = {
-      id: Date.now(),
-      sparepartId: selectedItem.id,
+
+    const itemToUpdate = { 
+      ...selectedItem, 
+      stock: selectedItem.stock - 1 
+    };
+
+    const newLogData = {
       borrower: formData.borrower,
       machine: formData.machine,
       reason: formData.reason,
-      dateBorrowed: new Date().toISOString().split("T")[0],
-      status: "Borrowed",
     };
-    onUpdateLogs([...logs, newLog]);
-    alert(`Berhasil meminjam ${selectedItem.name}!`);
+
+    // Panggil fungsi sakti dari App.jsx
+    onTransaction(itemToUpdate, newLogData);
+
     setIsModalOpen(false);
-    setFormData({ borrower: user.username, machine: "", reason: "" });
+    // Reset form
+    setFormData({ borrower: user.username || user.name, machine: "", reason: "" });
   };
 
-  // --- LOGIC TAMBAH BARANG BARU (BARU) ---
+  // --- LOGIC TAMBAH BARANG BARU ---
   const handleNewItemChange = (e) => {
     const { name, value } = e.target;
     setNewItemData((prev) => ({ ...prev, [name]: value }));
@@ -95,24 +82,15 @@ const InventoryTable = ({
 
   const handleSubmitNewItem = (e) => {
     e.preventDefault();
-    // Validasi sederhana: Ubah string angka jadi number beneran
     const finalItem = {
       ...newItemData,
       stock: parseInt(newItemData.stock),
-      minStock: parseInt(newItemData.minStock),
+      min_stock: parseInt(newItemData.min_stock), // Pastikan snake_case
     };
 
-    onAddItem(finalItem); // Kirim ke App.jsx
-    setIsAddModalOpen(false); // Tutup modal
-    // Reset form
-    setNewItemData({
-      name: "",
-      category: "",
-      location: "",
-      stock: 0,
-      minStock: 0,
-      unit: "Pcs",
-    });
+    onAddItem(finalItem); 
+    setIsAddModalOpen(false);
+    setNewItemData({ name: "", category: "", location: "", stock: 0, min_stock: 0, unit: "Pcs" });
   };
 
   return (
@@ -121,17 +99,13 @@ const InventoryTable = ({
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">
-              📦 Stok Sparepart Gudang
-            </h1>
+            <h1 className="text-2xl font-bold text-gray-800">📦 Stok Sparepart Gudang</h1>
             <div className="text-sm text-gray-500 mt-1">
-              Menampilkan {filteredInventory.length} dari {inventory.length}{" "}
-              barang
+              Menampilkan {filteredInventory.length} dari {inventory.length} barang
             </div>
           </div>
 
           <div className="flex gap-3 w-full md:w-auto">
-            {/* Search Bar */}
             <div className="relative w-full md:w-64">
               <input
                 type="text"
@@ -143,7 +117,6 @@ const InventoryTable = ({
               <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
             </div>
 
-            {/* TOMBOL TAMBAH (Hanya Admin) */}
             {user.role === "admin" && (
               <button
                 onClick={() => setIsAddModalOpen(true)}
@@ -156,7 +129,7 @@ const InventoryTable = ({
         </div>
 
         {/* Tabel Inventory */}
-        <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
+        <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200 overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead className="bg-gray-100 text-gray-600 uppercase text-sm font-semibold">
               <tr>
@@ -172,37 +145,20 @@ const InventoryTable = ({
                 filteredInventory.map((item) => (
                   <tr key={item.id} className="hover:bg-gray-50 border-b">
                     <td className="p-4">
-                      <div className="font-bold">{item.name}</div>
-                      <div className="text-xs text-gray-500">
-                        {item.category}
-                      </div>
+                      <div className="font-bold text-gray-800">{item.name}</div>
+                      <div className="text-xs text-gray-500">{item.category}</div>
                     </td>
                     <td className="p-4">
                       <span className="bg-gray-100 px-2 py-1 rounded text-xs font-mono border border-gray-300">
                         {item.location}
                       </span>
                     </td>
-                    <td
-                      className={`p-4 text-center font-bold ${
-                        item.stock <= item.minStock
-                          ? "text-red-600"
-                          : "text-green-600"
-                      }`}
-                    >
-                      {item.stock}{" "}
-                      <span className="text-xs text-gray-400 font-normal">
-                        {item.unit}
-                      </span>
+                    <td className={`p-4 text-center font-bold ${item.stock <= (item.min_stock || item.minStock) ? "text-red-600" : "text-green-600"}`}>
+                      {item.stock} <span className="text-xs text-gray-400 font-normal">{item.unit}</span>
                     </td>
                     <td className="p-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          item.stock <= item.minStock
-                            ? "bg-red-100 text-red-700"
-                            : "bg-green-100 text-green-700"
-                        }`}
-                      >
-                        {item.stock <= item.minStock ? "Order Now!" : "Aman"}
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.stock <= (item.min_stock || item.minStock) ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
+                        {item.stock <= (item.min_stock || item.minStock) ? "Order Now!" : "Aman"}
                       </span>
                     </td>
                     <td className="p-4 text-center">
@@ -217,9 +173,7 @@ const InventoryTable = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" className="p-8 text-center text-gray-500">
-                    Barang "{searchTerm}" tidak ditemukan. 🤔
-                  </td>
+                  <td colSpan="5" className="p-8 text-center text-gray-500">Barang tidak ditemukan. 🤔</td>
                 </tr>
               )}
             </tbody>
@@ -227,110 +181,49 @@ const InventoryTable = ({
         </div>
       </div>
 
-      {/* --- MODAL PINJAM (Sama seperti sebelumnya) --- */}
+      {/* --- MODAL PINJAM --- */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-md">
             <h2 className="text-xl font-bold mb-4 text-gray-800">
-              Pinjam:{" "}
-              <span className="text-indigo-600">{selectedItem?.name}</span>
+              Pinjam: <span className="text-indigo-600">{selectedItem?.name}</span>
             </h2>
             <form onSubmit={handleSubmitPinjam} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nama Peminjam
-                </label>
-                <input
-                  required
-                  name="borrower"
-                  value={formData.borrower}
-                  readOnly
-                  className="w-full bg-gray-100 text-gray-500 border border-gray-300 rounded-lg p-2 focus:outline-none cursor-not-allowed"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Peminjam</label>
+                <input required name="borrower" value={formData.borrower} readOnly className="w-full bg-gray-100 text-gray-500 border border-gray-300 rounded-lg p-2 outline-none cursor-not-allowed" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Untuk Mesin
-                </label>
-                <input
-                  required
-                  name="machine"
-                  value={formData.machine}
-                  onChange={handleInputChange}
-                  type="text"
-                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Untuk Mesin</label>
+                <input required name="machine" value={formData.machine} onChange={handleInputChange} type="text" className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Alasan
-                </label>
-                <textarea
-                  required
-                  name="reason"
-                  value={formData.reason}
-                  onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
-                  rows="3"
-                ></textarea>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Alasan</label>
+                <textarea required name="reason" value={formData.reason} onChange={handleInputChange} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none" rows="3"></textarea>
               </div>
               <div className="flex justify-end gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-md"
-                >
-                  Simpan Transaksi
-                </button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">Batal</button>
+                <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-md">Simpan Transaksi</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* --- MODAL TAMBAH BARANG (BARU) --- */}
+      {/* --- MODAL TAMBAH BARANG --- */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4 text-gray-800">
-              ✨ Tambah Barang Baru
-            </h2>
-
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">✨ Tambah Barang Baru</h2>
             <form onSubmit={handleSubmitNewItem} className="space-y-4">
-              {/* Nama Barang */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nama Barang
-                </label>
-                <input
-                  required
-                  name="name"
-                  value={newItemData.name}
-                  onChange={handleNewItemChange}
-                  type="text"
-                  placeholder="Contoh: Solenoid Valve"
-                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Barang</label>
+                <input required name="name" value={newItemData.name} onChange={handleNewItemChange} type="text" className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none" />
               </div>
-
-              {/* Kategori & Lokasi (Grid 2 Kolom) */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Kategori
-                  </label>
-                  <select
-                    name="category"
-                    value={newItemData.category}
-                    onChange={handleNewItemChange}
-                    className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none bg-white"
-                  >
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
+                  <select name="category" value={newItemData.category} onChange={handleNewItemChange} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none bg-white">
                     <option value="">- Pilih -</option>
                     <option value="Sensors">Sensors</option>
                     <option value="Heaters">Heaters</option>
@@ -340,80 +233,27 @@ const InventoryTable = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Lokasi Rak
-                  </label>
-                  <input
-                    required
-                    name="location"
-                    value={newItemData.location}
-                    onChange={handleNewItemChange}
-                    type="text"
-                    placeholder="Rak A-01"
-                    className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Lokasi Rak</label>
+                  <input required name="location" value={newItemData.location} onChange={handleNewItemChange} type="text" className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none" />
                 </div>
               </div>
-
-              {/* Stok, MinStock, Satuan (Grid 3 Kolom) */}
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Stok Awal
-                  </label>
-                  <input
-                    required
-                    name="stock"
-                    value={newItemData.stock}
-                    onChange={handleNewItemChange}
-                    type="number"
-                    min="0"
-                    className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Stok Awal</label>
+                  <input required name="stock" value={newItemData.stock} onChange={handleNewItemChange} type="number" min="0" className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Min. Stok
-                  </label>
-                  <input
-                    required
-                    name="minStock"
-                    value={newItemData.minStock}
-                    onChange={handleNewItemChange}
-                    type="number"
-                    min="0"
-                    className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Min. Stok</label>
+                  <input required name="min_stock" value={newItemData.min_stock} onChange={handleNewItemChange} type="number" min="0" className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Satuan
-                  </label>
-                  <input
-                    name="unit"
-                    value={newItemData.unit}
-                    onChange={handleNewItemChange}
-                    type="text"
-                    placeholder="Pcs"
-                    className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Satuan</label>
+                  <input name="unit" value={newItemData.unit} onChange={handleNewItemChange} type="text" className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none" />
                 </div>
               </div>
-
               <div className="flex justify-end gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition shadow-md"
-                >
-                  Simpan Barang
-                </button>
+                <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">Batal</button>
+                <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition shadow-md">Simpan Barang</button>
               </div>
             </form>
           </div>
