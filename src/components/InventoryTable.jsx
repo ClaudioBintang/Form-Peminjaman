@@ -41,8 +41,8 @@ const InventoryTable = ({
       return;
     }
     setSelectedItem(item);
-    // Menggunakan user.username atau user.name sesuai context kamu
-    setFormData({ borrower: user.username || user.name, machine: "", reason: "" });
+    const namaPeminjam = user?.user_metadata?.name || user?.email;
+    setFormData({ borrower: namaPeminjam, machine: "", reason: "" });
     setIsModalOpen(true);
   };
 
@@ -117,7 +117,7 @@ const InventoryTable = ({
               <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
             </div>
 
-            {user.role === "admin" && (
+            {user?.user_metadata?.role === "admin" && (
               <button
                 onClick={() => setIsAddModalOpen(true)}
                 className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-md flex items-center gap-2 transition"

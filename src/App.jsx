@@ -88,27 +88,35 @@ function App() {
   };
 
   // --- FUNGSI 2: TAMBAH BARANG BARU ---
-  const handleAddNewItem = async (newItemData) => {
-    // MAPPING: React -> Supabase
-    const dataToInsert = {
-      name: newItemData.name,
-      category: newItemData.category,
-      location: newItemData.location,
-      stock: parseInt(newItemData.stock),
-      min_stock: parseInt(newItemData.minStock), // Snake Case
-      unit: newItemData.unit
-    };
+  const handleAddNewItem = async (newItem) => {
+    try {
+      // 1. Kita tembak datanya ke Supabase (TANPA menyertakan ID)
+      // Biarkan Supabase yang meng-generate ID-nya secara otomatis
+      const { data, error } = await supabase
+        .from("inventory")
+        .insert([
+          {
+            name: newItem.name,
+            category: newItem.category,
+            location: newItem.location,
+            stock: newItem.stock,
+            min_stock: newItem.min_stock, // Pastikan namanya min_stock (snake_case)
+            unit: newItem.unit,
+          }
+        ])
+        .select(); // Penting: Minta Supabase mengembalikan data yang baru dibuat (lengkap dengan ID aslinya)
 
-    const { data, error } = await supabase
-      .from("inventory")
-      .insert([dataToInsert])
-      .select();
-
-    if (error) {
+      if (error) {
+        throw error;
+      }
+      // 2. Jika sukses, update state lokal dengan data dari Supabase
+      // data[0] berisi barang baru yang ID-nya sudah resmi dari database
+      setInventory((prevInventory) => [...prevInventory, data[0]]);
+      
+      alert("Yeay! Barang baru berhasil ditambahkan ke gudang! 📦");
+    } catch (error) {
+      console.error("Error nambah barang:", error);
       alert("Gagal tambah barang: " + error.message);
-    } else {
-      setInventory([...inventory, data[0]]);
-      alert("Sparepart baru berhasil ditambahkan!");
     }
   };
 
