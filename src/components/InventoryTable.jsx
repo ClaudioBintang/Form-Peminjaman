@@ -51,7 +51,6 @@ const InventoryTable = ({
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // REVISI BAGIAN INI: Sekarang lari ke Supabase lewat App.jsx
   const handleSubmitPinjam = (e) => {
     e.preventDefault();
 
@@ -66,12 +65,9 @@ const InventoryTable = ({
       reason: formData.reason,
     };
 
-    // Panggil fungsi sakti dari App.jsx
     onTransaction(itemToUpdate, newLogData);
-
     setIsModalOpen(false);
-    // Reset form
-    setFormData({ borrower: user.username || user.name, machine: "", reason: "" });
+    setFormData({ borrower: user?.user_metadata?.name || user?.email, machine: "", reason: "" });
   };
 
   // --- LOGIC TAMBAH BARANG BARU ---
@@ -85,7 +81,7 @@ const InventoryTable = ({
     const finalItem = {
       ...newItemData,
       stock: parseInt(newItemData.stock),
-      min_stock: parseInt(newItemData.min_stock), // Pastikan snake_case
+      min_stock: parseInt(newItemData.min_stock),
     };
 
     onAddItem(finalItem); 
@@ -142,35 +138,57 @@ const InventoryTable = ({
             </thead>
             <tbody className="text-gray-700">
               {filteredInventory.length > 0 ? (
-                filteredInventory.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50 border-b">
-                    <td className="p-4">
-                      <div className="font-bold text-gray-800">{item.name}</div>
-                      <div className="text-xs text-gray-500">{item.category}</div>
-                    </td>
-                    <td className="p-4">
-                      <span className="bg-gray-100 px-2 py-1 rounded text-xs font-mono border border-gray-300">
-                        {item.location}
-                      </span>
-                    </td>
-                    <td className={`p-4 text-center font-bold ${item.stock <= (item.min_stock || item.minStock) ? "text-red-600" : "text-green-600"}`}>
-                      {item.stock} <span className="text-xs text-gray-400 font-normal">{item.unit}</span>
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.stock <= (item.min_stock || item.minStock) ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
-                        {item.stock <= (item.min_stock || item.minStock) ? "Order Now!" : "Aman"}
-                      </span>
-                    </td>
-                    <td className="p-4 text-center">
-                      <button
-                        onClick={() => handleClickPinjam(item)}
-                        className="bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2 rounded-lg text-sm transition shadow-sm"
-                      >
-                        Pinjam
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                filteredInventory.map((item) => {
+                  
+                  // --- LOGIKA 2 STATUS WARNA ---
+                  let statusText = "Aman";
+                  let statusColor = "bg-green-100 text-green-700";
+                  let numberColor = "text-green-600";
+
+                  if (item.stock <= 0) {
+                    statusText = "Kosong";
+                    statusColor = "bg-red-100 text-red-700";
+                    numberColor = "text-red-600";
+                  }
+
+                  return (
+                    <tr key={item.id} className="hover:bg-gray-50 border-b">
+                      <td className="p-4">
+                        <div className="font-bold text-gray-800">{item.name}</div>
+                        <div className="text-xs text-gray-500">{item.category}</div>
+                      </td>
+                      <td className="p-4">
+                        <span className="bg-gray-100 px-2 py-1 rounded text-xs font-mono border border-gray-300">
+                          {item.location}
+                        </span>
+                      </td>
+                      {/* Warna Angka Stok */}
+                      <td className={`p-4 text-center font-bold ${numberColor}`}>
+                        {item.stock} <span className="text-xs text-gray-400 font-normal">{item.unit}</span>
+                      </td>
+                      {/* Label Status */}
+                      <td className="p-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
+                          {statusText}
+                        </span>
+                      </td>
+                      <td className="p-4 text-center">
+                        {/* Tombol dimatikan (disabled) jika stok kosong agar warnanya abu-abu */}
+                        <button
+                          onClick={() => handleClickPinjam(item)}
+                          disabled={item.stock <= 0}
+                          className={`px-4 py-2 rounded-lg text-sm transition shadow-sm ${
+                            item.stock <= 0 
+                              ? "bg-gray-300 text-gray-500 cursor-not-allowed" 
+                              : "bg-indigo-600 text-white hover:bg-indigo-700"
+                          }`}
+                        >
+                          Pinjam
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan="5" className="p-8 text-center text-gray-500">Barang tidak ditemukan. 🤔</td>
