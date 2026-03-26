@@ -3,8 +3,9 @@ import { useAuth } from "../context/AuthContext";
 
 const InventoryTable = ({
   inventory,
-  onTransaction, // Gunakan ini untuk Pinjam
-  onAddItem,     // Gunakan ini untuk Tambah Barang Baru
+  logs = [], //logs from src app.jsx, we need this to do live tracking di kartu atas, biar gak ribet passing props berkali-kali
+  onTransaction, 
+  onAddItem,     
 }) => {
   const { user } = useAuth();
 
@@ -14,18 +15,12 @@ const InventoryTable = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Form Data
   const [formData, setFormData] = useState({ borrower: "", machine: "", reason: "" });
   const [newItemData, setNewItemData] = useState({
-    name: "",
-    category: "",
-    location: "",
-    stock: 0,
-    min_stock: 0, // Sesuai kolom database
-    unit: "Pcs",
+    name: "", category: "", location: "", stock: 0, min_stock: 0, unit: "Pcs",
   });
 
-  // --- LOGIC SEARCH ---
+  // --- LOGIC SEARCH INVENTORY ---
   const filteredInventory = inventory.filter((item) => {
     return (
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -33,6 +28,20 @@ const InventoryTable = ({
       item.location?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   });
+
+  // --- LOGIC LIVE TRACKING (BARANG SEDANG DIPINJAM) ---
+  // Kita filter logs yang statusnya masih "Borrowed" (Belum dikembalikan)
+  const activeLoans = logs
+    .filter((log) => log.status === "Borrowed")
+    .map((log) => {
+      // Kita cari nama part dan kategorinya dari tabel inventory
+      const item = inventory.find((i) => i.id === log.sparepart_id);
+      return {
+        ...log,
+        itemName: item ? item.name : "Barang Tidak Diketahui",
+        category: item ? item.category : "-",
+      };
+    });
 
   // --- LOGIC PINJAM ---
   const handleClickPinjam = (item) => {
@@ -53,18 +62,8 @@ const InventoryTable = ({
 
   const handleSubmitPinjam = (e) => {
     e.preventDefault();
-
-    const itemToUpdate = { 
-      ...selectedItem, 
-      stock: selectedItem.stock - 1 
-    };
-
-    const newLogData = {
-      borrower: formData.borrower,
-      machine: formData.machine,
-      reason: formData.reason,
-    };
-
+    const itemToUpdate = { ...selectedItem, stock: selectedItem.stock - 1 };
+    const newLogData = { borrower: formData.borrower, machine: formData.machine, reason: formData.reason };
     onTransaction(itemToUpdate, newLogData);
     setIsModalOpen(false);
     setFormData({ borrower: user?.user_metadata?.name || user?.email, machine: "", reason: "" });
@@ -83,7 +82,6 @@ const InventoryTable = ({
       stock: parseInt(newItemData.stock),
       min_stock: parseInt(newItemData.min_stock),
     };
-
     onAddItem(finalItem); 
     setIsAddModalOpen(false);
     setNewItemData({ name: "", category: "", location: "", stock: 0, min_stock: 0, unit: "Pcs" });
@@ -92,7 +90,51 @@ const InventoryTable = ({
   return (
     <div className="p-6 bg-gray-50 min-h-screen relative">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
+
+        {/* New Feature: Live Tracking */}
+        {activeLoans.length > 0 && (
+          <div className="mb-10">
+            <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+              </span>
+              Live Tracking
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {activeLoans.map((loan) => (
+                <div key={loan.id} className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden hover:shadow-lg transition">
+                  {/* Header Kartu */}
+                  <div className="bg-yellow-500 text-white p-3 border-b-4 border-yellow-600">
+                    <div className="font-bold text-lg truncate" title={loan.itemName}>{loan.itemName}</div>
+                    <div className="text-xs opacity-90">{loan.category}</div>
+                  </div>
+                  
+                  {/* Body Kartu (Mirip Gambar Referensi User) */}
+                  <div className="p-4 space-y-2 text-sm font-mono text-gray-700">
+                    <div className="flex border border-gray-300 rounded overflow-hidden">
+                      <div className="bg-gray-100 p-2 w-1/3 border-r border-gray-300 font-semibold text-xs flex items-center">PEMINJAM</div>
+                      <div className="p-2 w-2/3 truncate text-indigo-700 font-bold">{loan.borrower}</div>
+                    </div>
+                    <div className="flex border border-gray-300 rounded overflow-hidden">
+                      <div className="bg-gray-100 p-2 w-1/3 border-r border-gray-300 font-semibold text-xs flex items-center">TANGGAL</div>
+                      <div className="p-2 w-2/3">{loan.date_borrowed.split("T")[0]}</div>
+                    </div>
+                    <div className="flex border border-gray-300 rounded overflow-hidden">
+                      <div className="bg-gray-100 p-2 w-1/3 border-r border-gray-300 font-semibold text-xs flex items-center">MESIN</div>
+                      <div className="p-2 w-2/3 truncate" title={loan.machine}>{loan.machine}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {/* ========================================= */}
+
+
+        {/* Header Tabel Inventory */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">📦 Stok Sparepart Gudang</h1>
@@ -116,7 +158,7 @@ const InventoryTable = ({
             {user?.user_metadata?.role === "admin" && (
               <button
                 onClick={() => setIsAddModalOpen(true)}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-md flex items-center gap-2 transition"
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-md flex items-center gap-2 transition whitespace-nowrap"
               >
                 <span>+</span> Tambah Barang
               </button>
@@ -139,8 +181,6 @@ const InventoryTable = ({
             <tbody className="text-gray-700">
               {filteredInventory.length > 0 ? (
                 filteredInventory.map((item) => {
-                  
-                  // --- LOGIKA 2 STATUS WARNA ---
                   let statusText = "Aman";
                   let statusColor = "bg-green-100 text-green-700";
                   let numberColor = "text-green-600";
@@ -162,18 +202,15 @@ const InventoryTable = ({
                           {item.location}
                         </span>
                       </td>
-                      {/* Warna Angka Stok */}
                       <td className={`p-4 text-center font-bold ${numberColor}`}>
                         {item.stock} <span className="text-xs text-gray-400 font-normal">{item.unit}</span>
                       </td>
-                      {/* Label Status */}
                       <td className="p-4">
                         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
                           {statusText}
                         </span>
                       </td>
                       <td className="p-4 text-center">
-                        {/* Tombol dimatikan (disabled) jika stok kosong agar warnanya abu-abu */}
                         <button
                           onClick={() => handleClickPinjam(item)}
                           disabled={item.stock <= 0}
